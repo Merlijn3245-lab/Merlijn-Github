@@ -229,6 +229,33 @@ body {
 .stat-num { font-size: 1.8rem; font-weight: 700; }
 .stat-label { color: var(--muted); font-size: 0.85rem; }
 
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.crumbs a { color: var(--accent); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumb-sep { color: var(--muted); }
+.crumb-current { color: var(--muted); font-weight: 600; }
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 10px 0 14px;
+}
+
+.subfolder-block { margin-bottom: 26px; }
+
+.subfolder-block .card-grid { margin-top: 12px; }
+
 .page-head { margin-bottom: 24px; }
 .page-head h2 { font-size: 1.8rem; }
 .breadcrumb h2 { font-size: 1.8rem; }

@@ -13,6 +13,7 @@ const ICONS = {
 
 const state = {
   folders: [],
+  subfolders: [],
   files: [],
   folderId: null,
   folderQuery: "",
@@ -36,6 +37,12 @@ function formatNum(n) {
 
 function downloadUrl(f) {
   return "https://archive.org/download/" + encodeURIComponent(f.archive_id) + "/" + encodeURIComponent(f.filename);
+}
+
+function upsertFolder(f) {
+  const i = state.folders.findIndex((x) => x.id === f.id);
+  if (i >= 0) state.folders[i] = f;
+  else state.folders.push(f);
 }
 
 const root = document.documentElement;
@@ -83,66 +90,122 @@ async function loadFolders() {
   renderFolders();
 }
 
+function folderCard(f) {
+  return (
+    '<a class="folder-card" href="#/folder/' + f.id + '" style="--card-accent:' + (f.color || "#4f8cff") + '">' +
+    '<div class="folder-icon">' + ICONS.folder + "</div>" +
+    '<div class="folder-name">' + esc(f.name) + "</div>" +
+    (f.description ? '<div class="folder-desc">' + esc(f.description) + "</div>" : "") +
+    "</a>"
+  );
+}
+
 function renderFolders() {
   const q = state.folderQuery.toLowerCase();
-  const list = state.folders.filter(
-    (f) => f.name.toLowerCase().includes(q) || (f.description || "").toLowerCase().includes(q)
-  );
+  const list = state.folders
+    .filter((f) => !f.parent_id)
+    .filter(
+      (f) => f.name.toLowerCase().includes(q) || (f.description || "").toLowerCase().includes(q)
+    );
   const grid = $("#folderGrid");
   if (!list.length) {
     grid.innerHTML = '<div class="empty">' + (q ? "No folders match your search." : "No folders yet.") + "</div>";
     return;
   }
-  grid.innerHTML = list
-    .map(
-      (f) =>
-        '<a class="folder-card" href="#/folder/' + f.id + '" style="--card-accent:' + (f.color || "#4f8cff") + '">' +
-        '<div class="folder-icon">' + ICONS.folder + "</div>" +
-        '<div class="folder-name">' + esc(f.name) + "</div>" +
-        (f.description ? '<div class="folder-desc">' + esc(f.description) + "</div>" : "") +
-        "</a>"
-    )
-    .join("");
+  grid.innerHTML = list.map(folderCard).join("");
+}
+
+function crumbsPath(id) {
+  const path = [];
+  let cur = state.folders.find((f) => f.id === id);
+  while (cur) {
+    path.unshift(cur);
+    cur = cur.parent_id ? state.folders.find((f) => f.id === cur.parent_id) : null;
+  }
+  return path;
+}
+
+function renderCrumbs(id) {
+  const el = $("#breadcrumb");
+  const path = crumbsPath(id);
+  let html = '<a href="#/storage">Storage</a>';
+  path.forEach((f, i) => {
+    html += ' <span class="crumb-sep">/</span> ';
+    html +=
+      i === path.length - 1
+        ? '<span class="crumb-current">' + esc(f.name) + "</span>"
+        : '<a href="#/folder/' + f.id + '">' + esc(f.name) + "</a>";
+  });
+  el.innerHTML = html;
+}
+
+async function ensureFolder(id) {
+  let f = state.folders.find((x) => x.id === id);
+  if (f) return f;
+  const { data, error } = await client.from("folders").select("*").eq("id", id).single();
+  if (error || !data) return null;
+  upsertFolder(data);
+  if (data.parent_id) await ensureFolder(data.parent_id);
+  return data;
 }
 
 async function openFolder(id) {
   if (!client) { showConfigMsg("#fileList"); return; }
   state.folderId = id;
-  const folder = state.folders.find((f) => f.id === id);
-  if (folder) {
-    $("#folderTitle").textContent = folder.name;
-    $("#folderDesc").textContent = folder.description || "";
-  }
-  const { data, error } = await client
-    .from("files")
-    .select("*")
-    .eq("folder_id", id)
-    .order("sort_order");
-  if (error) { showError("#fileList", error.message); return; }
-  state.files = data || [];
-  renderFiles();
+  const folder = await ensureFolder(id);
+  if (!folder) { location.hash = "#/storage"; return; }
+  $("#folderTitle").textContent = folder.name;
+  $("#folderDesc").textContent = folder.description || "";
+  renderCrumbs(id);
+  const [subRes, fileRes] = await Promise.all([
+    client.from("folders").select("*").eq("parent_id", id).order("sort_order"),
+    client.from("files").select("*").eq("folder_id", id).order("sort_order")
+  ]);
+  if (subRes.error) { showError("#fileList", subRes.error.message); return; }
+  if (fileRes.error) { showError("#fileList", fileRes.error.message); return; }
+  state.subfolders = subRes.data || [];
+  state.subfolders.forEach(upsertFolder);
+  state.files = fileRes.data || [];
+  renderFolderContent();
 }
 
-function renderFiles() {
+function renderFolderContent() {
   const q = state.fileQuery.toLowerCase();
-  let list = state.files.filter(
+  const subs = state.subfolders.filter(
+    (f) => f.name.toLowerCase().includes(q) || (f.description || "").toLowerCase().includes(q)
+  );
+  let fileList = state.files.filter(
     (f) => f.name.toLowerCase().includes(q) || (f.changelog || "").toLowerCase().includes(q)
   );
   const s = state.fileSort;
-  list.sort((a, b) => {
+  fileList.sort((a, b) => {
     if (s === "oldest") return (a.release_date || "").localeCompare(b.release_date || "");
     if (s === "largest") return (b.size_gb || 0) - (a.size_gb || 0);
     if (s === "smallest") return (a.size_gb || 0) - (b.size_gb || 0);
     if (s === "az") return a.name.localeCompare(b.name);
     return (b.release_date || "").localeCompare(a.release_date || "");
   });
+
+  const subBlock = $("#subfolderGrid");
+  if (subs.length) {
+    subBlock.innerHTML = '<h3 class="section-title">Subfolders</h3><div class="card-grid">' + subs.map(folderCard).join("") + "</div>";
+    subBlock.classList.remove("hidden");
+  } else {
+    subBlock.innerHTML = "";
+    subBlock.classList.add("hidden");
+  }
+
   const listEl = $("#fileList");
-  if (!list.length) {
-    listEl.innerHTML = '<div class="empty">' + (q ? "No files match your search." : "This folder is empty.") + "</div>";
+  if (!fileList.length && !subs.length) {
+    listEl.innerHTML = '<div class="empty">' + (q ? "Nothing matches your search." : "This folder is empty.") + "</div>";
     return;
   }
-  listEl.innerHTML = list.map(fileCard).join("");
-  list.forEach((f) => loadCount(f, listEl));
+  if (!fileList.length) {
+    listEl.innerHTML = '<div class="empty">' + (q ? "No files match your search." : "No files here.") + "</div>";
+    return;
+  }
+  listEl.innerHTML = '<h3 class="section-title">Files</h3>' + fileList.map(fileCard).join("");
+  fileList.forEach((f) => loadCount(f, listEl));
 }
 
 function fileCard(f) {
@@ -206,8 +269,8 @@ $("#storageBackBtn").addEventListener("click", () => { location.hash = "#/"; });
 $("#folderBackBtn").addEventListener("click", () => { location.hash = "#/storage"; });
 $("#themeToggle").addEventListener("click", () => applyTheme(theme === "dark" ? "light" : "dark"));
 $("#folderSearch").addEventListener("input", (e) => { state.folderQuery = e.target.value; renderFolders(); });
-$("#fileSearch").addEventListener("input", (e) => { state.fileQuery = e.target.value; renderFiles(); });
-$("#fileSort").addEventListener("change", (e) => { state.fileSort = e.target.value; renderFiles(); });
+$("#fileSearch").addEventListener("input", (e) => { state.fileQuery = e.target.value; renderFolderContent(); });
+$("#fileSort").addEventListener("change", (e) => { state.fileSort = e.target.value; renderFolderContent(); });
 
 window.addEventListener("hashchange", route);
 route();

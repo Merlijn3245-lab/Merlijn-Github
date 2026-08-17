@@ -20,6 +20,18 @@ function downloadUrl(f) {
   return "https://archive.org/download/" + encodeURIComponent(f.archive_id) + "/" + encodeURIComponent(f.filename);
 }
 
+function depthOf(id) {
+  const cache = {};
+  const walk = (fid) => {
+    if (cache[fid] != null) return cache[fid];
+    const f = folders.find((x) => x.id === fid);
+    if (!f || !f.parent_id || f.id === fid) { cache[fid] = 0; return 0; }
+    cache[fid] = walk(f.parent_id) + 1;
+    return cache[fid];
+  };
+  return walk(id);
+}
+
 function showLogin() {
   $("#loginView").classList.remove("hidden");
   $("#adminView").classList.add("hidden");
@@ -77,15 +89,22 @@ async function loadFolders() {
     folderFileCounts[f.folder_id] = (folderFileCounts[f.folder_id] || 0) + 1;
   });
   renderFolderList();
+  renderSubfolders();
 }
 
 function renderFolderList() {
   const ul = $("#folderList");
-  ul.innerHTML = folders
+  const sorted = [...folders].sort((a, b) => {
+    const da = depthOf(a.id);
+    const db = depthOf(b.id);
+    if (da !== db) return da - db;
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
+  ul.innerHTML = sorted
     .map(
       (f) =>
         '<li class="' + (currentFolder && currentFolder.id === f.id ? "active" : "") + '">' +
-        '<button data-folder="' + f.id + '">' +
+        '<button data-folder="' + f.id + '" style="padding-left:' + (depthOf(f.id) * 18 + 10) + 'px">' +
         "<span>" + esc(f.name) + "</span>" +
         '<span class="muted small">' + (folderFileCounts[f.id] || 0) + "</span>" +
         "</button></li>"
@@ -115,7 +134,45 @@ async function loadFiles() {
   if (error) { alert("Failed to load files: " + error.message); return; }
   files = data || [];
   renderFiles();
+  renderSubfolders();
 }
+
+function renderSubfolders() {
+  const section = $("#subSection");
+  const rows = $("#subRows");
+  if (!currentFolder) {
+    section.classList.add("hidden");
+    return;
+  }
+  const kids = folders.filter((f) => f.parent_id === currentFolder.id);
+  if (!kids.length) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+  rows.innerHTML = kids
+    .map(
+      (f) =>
+        '<div class="file-row">' +
+        "<div>" +
+        '<div class="fname">' + esc(f.name) + "</div>" +
+        '<div class="fsub">' + (folderFileCounts[f.id] || 0) + " files</div>" +
+        "</div>" +
+        '<div class="row-actions">' +
+        '<button class="btn btn-ghost btn-sm" data-open-sub="' + f.id + '">Open</button>' +
+        "</div></div>"
+    )
+    .join("");
+}
+
+$("#subRows").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-open-sub]");
+  if (!btn) return;
+  currentFolder = folders.find((f) => f.id === btn.dataset.openSub);
+  hideForm();
+  renderFolderList();
+  await loadFiles();
+});
 
 function renderFiles() {
   const rows = $("#fileRows");
@@ -171,11 +228,12 @@ $("#fileRows").addEventListener("click", async (e) => {
 });
 
 $("#addFolderBtn").addEventListener("click", () => showFolderForm("add", null));
+$("#addSubBtn").addEventListener("click", () => showFolderForm("add", null));
 $("#editFolderBtn").addEventListener("click", () => showFolderForm("edit", currentFolder));
 
 $("#deleteFolderBtn").addEventListener("click", async () => {
   if (!currentFolder) return;
-  if (!confirm('Delete folder "' + currentFolder.name + '" and ALL files inside it?')) return;
+  if (!confirm('Delete folder "' + currentFolder.name + '" and ALL subfolders and files inside it?')) return;
   const { error } = await client.from("folders").delete().eq("id", currentFolder.id);
   if (error) { alert("Delete failed: " + error.message); return; }
   currentFolder = null;
@@ -194,10 +252,34 @@ function hideForm() {
   editingFile = null;
 }
 
+function parentOptions(exceptId, selectedId) {
+  const blocked = new Set();
+  if (exceptId) {
+    blocked.add(exceptId);
+    const stack = folders.filter((f) => f.parent_id === exceptId);
+    while (stack.length) {
+      const f = stack.pop();
+      blocked.add(f.id);
+      folders.filter((x) => x.parent_id === f.id).forEach((x) => stack.push(x));
+    }
+  }
+  let html = '<option value="">Top level</option>';
+  folders.forEach((f) => {
+    if (blocked.has(f.id)) return;
+    const pad = "— ".repeat(depthOf(f.id));
+    html +=
+      '<option value="' + f.id + '"' + (selectedId === f.id ? " selected" : "") + ">" +
+      esc(pad + f.name) + "</option>";
+  });
+  return html;
+}
+
 function showFolderForm(mode, folder) {
   formMode = mode;
   editingFolder = folder;
   const f = folder || {};
+  const defaultParent = mode === "add" && currentFolder ? currentFolder.id : "";
+  const parentId = mode === "edit" ? f.parent_id || "" : defaultParent;
   $("#formArea").innerHTML =
     '<div class="inline-form">' +
     "<h4>" + (mode === "edit" ? "Edit folder" : "New folder") + "</h4>" +
@@ -205,6 +287,7 @@ function showFolderForm(mode, folder) {
     '<label>Name<input id="ff-name" value="' + esc(f.name || "") + '" required></label>' +
     '<label>Color<input id="ff-color" type="color" value="' + esc(f.color || "#4f8cff") + '"></label>' +
     "</div>" +
+    '<label class="full">Parent folder<select id="ff-parent">' + parentOptions(mode === "edit" ? f.id : null, parentId) + "</select></label>" +
     '<label class="full">Description<input id="ff-desc" value="' + esc(f.description || "") + '"></label>' +
     '<div class="form-actions">' +
     '<button class="btn btn-primary btn-sm" id="ff-save">Save</button>' +
@@ -218,9 +301,11 @@ async function saveFolder() {
   const payload = {
     name: $("#ff-name").value.trim(),
     description: $("#ff-desc").value.trim(),
-    color: $("#ff-color").value
+    color: $("#ff-color").value,
+    parent_id: $("#ff-parent").value || null
   };
   if (!payload.name) { alert("Name is required."); return; }
+  if (payload.parent_id === payload.id) { alert("A folder cannot be inside itself."); return; }
   let res;
   if (formMode === "edit") {
     res = await client.from("folders").update(payload).eq("id", editingFolder.id);
@@ -229,14 +314,15 @@ async function saveFolder() {
   }
   if (res.error) { alert("Save failed: " + res.error.message); return; }
   hideForm();
+  await loadFolders();
   if (formMode === "add") {
-    currentFolder = res.data[0];
+    currentFolder = folders.find((x) => x.id === res.data[0].id);
     renderFolderList();
     await loadFiles();
   } else {
-    await loadFolders();
-    const fresh = folders.find((x) => x.id === currentFolder.id);
-    if (fresh) { currentFolder = fresh; $("#manageTitle").textContent = fresh.name; }
+    currentFolder = folders.find((x) => x.id === editingFolder.id);
+    renderFolderList();
+    await loadFiles();
   }
 }
 
