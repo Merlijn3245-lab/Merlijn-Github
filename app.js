@@ -211,19 +211,33 @@ function renderFolderContent() {
   fileList.forEach((f) => loadCount(f, listEl));
 }
 
+function videoHtml(url) {
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/);
+  if (yt) {
+    return '<iframe class="file-video iframe" src="https://www.youtube.com/embed/' + yt[1] + '" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>';
+  }
+  return '<video class="file-video" controls preload="metadata" src="' + esc(url) + '"></video>';
+}
+
 function fileCard(f) {
   const cover = safeUrl(f.cover_url);
+  const video = safeUrl(f.video_url);
   const mirrors = (Array.isArray(f.mirrors) ? f.mirrors : []).filter((m) => m && safeUrl(m.url));
   const size = f.size_gb ? f.size_gb + " GB" : "";
   const date = f.release_date
     ? new Date(f.release_date + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
     : "";
+  const media = video
+    ? videoHtml(video)
+    : cover
+      ? '<img class="file-cover" src="' + esc(cover) + '" alt="" loading="lazy">'
+      : "";
   return (
-    '<article class="file-card' + (cover ? " has-cover" : "") + '">' +
+    '<article class="file-card' + (video || cover ? " has-cover" : "") + '">' +
     '<div class="file-main">' +
     '<div class="file-icon">' + ICONS.file + "</div>" +
     '<div class="file-info">' +
-    (cover ? '<img class="file-cover" src="' + esc(cover) + '" alt="" loading="lazy">' : "") +
+    media +
     '<div class="file-name-row"><h3 class="file-name">' + esc(f.name) + "</h3>" +
     '<span class="downloads" id="count-' + f.id + '"></span></div>' +
     '<div class="file-meta">' +

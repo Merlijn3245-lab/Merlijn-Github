@@ -360,6 +360,7 @@ function showFileForm(mode, file) {
     '<label>Release date<input id="ff-date" type="date" value="' + esc(f.release_date || "") + '"></label>' +
     '<label>Cover image URL<input id="ff-cover" value="' + esc(f.cover_url || "") + '" placeholder="https://... (optional)"></label>' +
     "</div>" +
+    '<label class="full">Video URL (optional)<input id="ff-video" value="' + esc(f.video_url || "") + '" placeholder="Direct .mp4 link or YouTube link (host videos on Archive.org)"></label>' +
     '<label class="full">Changelog<textarea id="ff-changelog" rows="4" placeholder="One change per line (optional)">' + esc(f.changelog || "") + "</textarea></label>" +
     '<div class="full">' +
     '<div class="mirror-head">' +
@@ -407,6 +408,7 @@ async function saveFile() {
     release_date: $("#ff-date").value || null,
     changelog: $("#ff-changelog").value,
     cover_url: $("#ff-cover").value.trim(),
+    video_url: $("#ff-video").value.trim(),
     mirrors: mirrorRowsEl
       ? [...mirrorRowsEl.querySelectorAll(".mirror-row")]
           .map((row) => ({
