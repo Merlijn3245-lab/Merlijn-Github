@@ -9,6 +9,7 @@ let currentFolder = null;
 let formMode = "add";
 let editingFolder = null;
 let editingFile = null;
+let mirrorRowsEl = null;
 
 function esc(s) {
   const d = document.createElement("div");
@@ -326,6 +327,19 @@ async function saveFolder() {
   }
 }
 
+function mirrorRowsHtml(rows) {
+  return rows
+    .map(
+      (m, i) =>
+        '<div class="mirror-row">' +
+        '<input class="mirror-label" placeholder="Label (e.g. Google Drive)" value="' + esc(m.label || "") + '">' +
+        '<input class="mirror-url" placeholder="https://..." value="' + esc(m.url || "") + '">' +
+        '<button type="button" class="btn btn-danger btn-sm mirror-del">Remove</button>' +
+        "</div>"
+    )
+    .join("");
+}
+
 function showFileForm(mode, file) {
   formMode = mode;
   editingFile = file;
@@ -346,6 +360,13 @@ function showFileForm(mode, file) {
     '<label>Cover image URL<input id="ff-cover" value="' + esc(f.cover_url || "") + '" placeholder="https://... (optional)"></label>' +
     "</div>" +
     '<label class="full">Changelog<textarea id="ff-changelog" rows="4" placeholder="One change per line (optional)">' + esc(f.changelog || "") + "</textarea></label>" +
+    '<div class="full">' +
+    '<div class="mirror-head">' +
+    "<label>Mirror links (optional)</label>" +
+    '<button type="button" class="btn btn-ghost btn-sm" id="ff-add-mirror">+ Add mirror</button>' +
+    "</div>" +
+    '<div id="ff-mirrors">' + mirrorRowsHtml(f.mirrors || []) + "</div>" +
+    "</div>" +
     '<div class="url-preview" id="ff-preview"></div>' +
     '<div class="form-actions">' +
     '<button class="btn btn-primary btn-sm" id="ff-save">Save</button>' +
@@ -359,6 +380,14 @@ function showFileForm(mode, file) {
   $("#ff-archive").addEventListener("input", updatePreview);
   $("#ff-file").addEventListener("input", updatePreview);
   updatePreview();
+  mirrorRowsEl = $("#ff-mirrors");
+  $("#ff-add-mirror").addEventListener("click", () => {
+    mirrorRowsEl.insertAdjacentHTML("beforeend", mirrorRowsHtml([{}]));
+  });
+  mirrorRowsEl.addEventListener("click", (e) => {
+    const del = e.target.closest(".mirror-del");
+    if (del) del.parentElement.remove();
+  });
   $("#ff-save").addEventListener("click", saveFile);
   $("#ff-cancel").addEventListener("click", hideForm);
 }
@@ -372,6 +401,14 @@ async function saveFile() {
     release_date: $("#ff-date").value || null,
     changelog: $("#ff-changelog").value,
     cover_url: $("#ff-cover").value.trim(),
+    mirrors: mirrorRowsEl
+      ? [...mirrorRowsEl.querySelectorAll(".mirror-row")]
+          .map((row) => ({
+            label: row.querySelector(".mirror-label").value.trim(),
+            url: row.querySelector(".mirror-url").value.trim()
+          }))
+          .filter((m) => m.url)
+      : [],
     folder_id: currentFolder.id
   };
   if (!payload.name || !payload.archive_id || !payload.filename) {
