@@ -37,6 +37,8 @@ function formatNum(n) {
 }
 
 function downloadUrl(f) {
+  const custom = safeUrl(f.download_url);
+  if (custom) return custom;
   return "https://archive.org/download/" + encodeURIComponent(f.archive_id) + "/" + encodeURIComponent(f.filename);
 }
 
@@ -251,6 +253,7 @@ function fileCard(f) {
 }
 
 async function loadCount(f, container) {
+  if (!f.archive_id) return;
   const el = container.querySelector("#count-" + f.id);
   if (!el) return;
   try {

@@ -351,9 +351,10 @@ function showFileForm(mode, file) {
     '<label>Name<input id="ff-name" value="' + esc(f.name || "") + '" placeholder="Orion Drift v1.2.3" required></label>' +
     '<label>Size (GB)<input id="ff-size" type="number" step="0.1" min="0" value="' + esc(f.size_gb != null ? f.size_gb : "") + '" placeholder="5.2"></label>' +
     "</div>" +
+    '<label class="full">Primary download URL<input id="ff-url" value="' + esc(f.download_url || "") + '" placeholder="https://... (if empty, the Archive.org button is used)"></label>' +
     '<div class="form-row">' +
-    '<label>Archive item ID<input id="ff-archive" value="' + esc(f.archive_id || "") + '" placeholder="orion-drift-v1-2-3" required></label>' +
-    '<label>File name<input id="ff-file" value="' + esc(f.filename || "") + '" placeholder="orion-drift-v1.2.3.zip" required></label>' +
+    '<label>Archive item ID (optional)<input id="ff-archive" value="' + esc(f.archive_id || "") + '" placeholder="orion-drift-v1-2-3"></label>' +
+    '<label>File name (optional)<input id="ff-file" value="' + esc(f.filename || "") + '" placeholder="orion-drift-v1.2.3.zip"></label>' +
     "</div>" +
     '<div class="form-row">' +
     '<label>Release date<input id="ff-date" type="date" value="' + esc(f.release_date || "") + '"></label>' +
@@ -373,10 +374,14 @@ function showFileForm(mode, file) {
     '<button class="btn btn-ghost btn-sm" id="ff-cancel">Cancel</button>' +
     "</div></div>";
   const updatePreview = () => {
+    const url = $("#ff-url").value.trim();
     const a = $("#ff-archive").value.trim();
     const fn = $("#ff-file").value.trim();
-    $("#ff-preview").textContent = a && fn ? "Download URL: https://archive.org/download/" + a + "/" + fn : "";
+    if (url) $("#ff-preview").textContent = "Download button: " + url;
+    else if (a && fn) $("#ff-preview").textContent = "Download button: https://archive.org/download/" + a + "/" + fn;
+    else $("#ff-preview").textContent = "";
   };
+  $("#ff-url").addEventListener("input", updatePreview);
   $("#ff-archive").addEventListener("input", updatePreview);
   $("#ff-file").addEventListener("input", updatePreview);
   updatePreview();
@@ -395,6 +400,7 @@ function showFileForm(mode, file) {
 async function saveFile() {
   const payload = {
     name: $("#ff-name").value.trim(),
+    download_url: $("#ff-url").value.trim(),
     archive_id: $("#ff-archive").value.trim(),
     filename: $("#ff-file").value.trim(),
     size_gb: $("#ff-size").value !== "" ? parseFloat($("#ff-size").value) : null,
@@ -411,8 +417,12 @@ async function saveFile() {
       : [],
     folder_id: currentFolder.id
   };
-  if (!payload.name || !payload.archive_id || !payload.filename) {
-    alert("Name, archive item ID and file name are required.");
+  if (!payload.name) {
+    alert("Name is required.");
+    return;
+  }
+  if (!payload.download_url && !(payload.archive_id && payload.filename)) {
+    alert("Add a primary download URL, or archive item ID + file name.");
     return;
   }
   let res;
