@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Merlijn Storage - Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="brand" id="brandBtn" title="Home">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      <span>Merlijn Storage</span><span class="admin-tag">Admin</span>
+    </button>
+    <div class="topbar-actions">
+      <a class="btn btn-ghost btn-sm" href="index.html">View site</a>
+      <button id="logoutBtn" class="btn btn-ghost btn-sm hidden">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="loginView" class="view">
+      <div class="login-box card">
+        <h2>Admin login</h2>
+        <form id="loginForm">
+          <label>Email<input type="email" id="loginEmail" autocomplete="email" required></label>
+          <label>Password<input type="password" id="loginPassword" autocomplete="current-password" required></label>
+          <p id="loginMsg" class="msg"></p>
+          <button class="btn btn-primary btn-block" type="submit">Log in</button>
+        </form>
+        <p class="muted small" style="margin-top:14px">New account? Create your user in Supabase: Authentication &gt; Users &gt; Add user.</p>
+      </div>
+    </section>
+
+    <section id="adminView" class="view hidden">
+      <div class="admin-layout">
+        <aside class="sidebar card">
+          <div class="sidebar-head">
+            <h3>Folders</h3>
+            <button id="addFolderBtn" class="btn btn-primary btn-sm">+ New</button>
+          </div>
+          <ul id="folderList"></ul>
+        </aside>
+        <div class="admin-main card">
+          <div id="formArea"></div>
+          <div id="folderEmpty" class="empty">Select a folder or create one.</div>
+          <div id="folderManage" class="hidden">
+            <div class="admin-head">
+              <h3 id="manageTitle"></h3>
+              <div style="display:flex;gap:8px">
+                <button id="editFolderBtn" class="btn btn-ghost btn-sm">Rename</button>
+                <button id="deleteFolderBtn" class="btn btn-danger btn-sm">Delete folder</button>
+              </div>
+            </div>
+            <div class="admin-head">
+              <h4>Files</h4>
+              <button id="addFileBtn" class="btn btn-primary btn-sm">+ Add file</button>
+            </div>
+            <div id="fileRows"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Merlijn Storage - private cloud storage for folders, files and game versions">
+  <title>Merlijn Storage</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="brand" id="brandBtn" title="Home">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      <span>Merlijn Storage</span>
+    </button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="themeToggle" title="Toggle theme"></button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-home" class="view">
+      <div class="hero">
+        <div class="hero-badge">Private cloud storage</div>
+        <h1>Merlijn <span class="accent">Storage</span></h1>
+        <p class="hero-sub">Your files, folders and game versions — organized, protected, and ready to download.</p>
+        <button class="btn btn-primary btn-lg" id="openStorageBtn">Open Storage</button>
+        <div class="hero-stats" id="heroStats"></div>
+      </div>
+    </section>
+
+    <section id="view-storage" class="view hidden">
+      <div class="page-head">
+        <button class="btn btn-ghost btn-sm" id="storageBackBtn">Back to home</button>
+        <h2>Storage</h2>
+        <div class="folder-controls">
+          <input id="folderSearch" class="search-input" placeholder="Search folders...">
+        </div>
+      </div>
+      <div id="folderGrid" class="card-grid"></div>
+    </section>
+
+    <section id="view-folder" class="view hidden">
+      <div class="page-head">
+        <button class="btn btn-ghost btn-sm" id="folderBackBtn">Back to storage</button>
+        <div class="breadcrumb">
+          <h2 id="folderTitle"></h2>
+          <p id="folderDesc" class="muted"></p>
+        </div>
+        <div class="folder-controls">
+          <input id="fileSearch" class="search-input" placeholder="Search files...">
+          <select id="fileSort" class="select-input" title="Sort files">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="largest">Largest first</option>
+            <option value="smallest">Smallest first</option>
+            <option value="az">A to Z</option>
+          </select>
+        </div>
+      </div>
+      <div id="fileList" class="file-list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Merlijn Storage</span>
+    <a href="admin.html">Admin</a>
+  </footer>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
